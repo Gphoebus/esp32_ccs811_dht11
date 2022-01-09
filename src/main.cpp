@@ -1,8 +1,11 @@
-/*********
-  Rui Santos
-  Complete project details at https://randomnerdtutorials.com
-  Based on the NTP Client library example
-*********/
+/******************************************************************
+Mesure de co2 temperature humidite pression
+les capteurs sont :
+ccs811 ---> mesure eco2 et ecov
+le dht 11 est remplacé par un bme130
+Un serveur webb est opérationnel en mode ap sur http://192.168.4.1/
+
+********************************************************************/
 #include <Arduino.h>
 
 #include <WiFi.h>
