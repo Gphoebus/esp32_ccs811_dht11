@@ -23,6 +23,9 @@ const char index_html[] PROGMEM = R"rawliteral(<!DOCTYPE HTML>
 	margin: auto;
 	border:1px solid black;
 	}
+  table {
+    border-collapse: collapse;
+  }
   body
   {
   background-color:DarkSalmon;
@@ -44,6 +47,7 @@ input:checked+.slider:before {-webkit-transform: translateX(52px); -ms-transform
   <tr>
     <th>Température</th>
     <th>Humidité</th>
+    <th>Pression atmosphérique</th>
     <th>CO2</th>
     <th>Date</th>
     <th>Heure</th>
@@ -51,6 +55,7 @@ input:checked+.slider:before {-webkit-transform: translateX(52px); -ms-transform
   <tr>
     <td>%temperature%</td>
     <td>%humidite%</td>
+    <td>%pression%</td>    
     <td>%co2%</td>
 	<td>%date%</td>
     <td>%heure%</td>
@@ -100,4 +105,3 @@ function toggleCheckbox(element)
 </body>
 </html>
 )rawliteral";
-

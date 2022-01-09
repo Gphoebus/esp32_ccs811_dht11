@@ -90,8 +90,8 @@ float temperature = 0.0f;
 // Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
 int ALTITUDE = 170;
-double getP(double Pact, double temp) {
-  return Pact * pow((1 - ((0.0065 * ALTITUDE) / (temp + 0.0065 * ALTITUDE + 273.15))), -5.257);
+int getP(double Pact, double temp) {
+  return int(Pact * pow((1 - ((0.0065 * ALTITUDE) / (temp + 0.0065 * ALTITUDE + 273.15))), -5.257));
 }
 
 void printValues()
@@ -205,6 +205,10 @@ String processor(const String &var)
   else if (var == "etat")
   {
     return String(letat_calibration);
+  }
+  else if (var == "pression")
+  {
+    return String(getP((bme.readPressure() / 100.0F), bme.readTemperature()));
   }
   if (var == "BUTTONPLACEHOLDER")
   {
@@ -406,7 +410,7 @@ void loop()
     int leco2 = readCO2();
     String CO2s = "CO2: " + String(leco2);
     Serial.println(CO2s);
-    double P = getP((bme.readPressure() / 100.0F), bme.readTemperature());
+    int P = getP((bme.readPressure() / 100.0F), bme.readTemperature());
     Serial.print(P);
     Serial.println(" hPa");
     Serial.print(bme.readTemperature());
