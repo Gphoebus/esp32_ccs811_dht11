@@ -136,10 +136,10 @@ int readCO2()
   if (errstat == CCS811_ERRSTAT_OK)
   {
     Serial.print("CCS811: ");
-    Serial.print("eco2=");
+    Serial.print("eco2= ");
     Serial.print(eco2);
     Serial.print(" ppm  ");
-    Serial.print("etvoc=");
+    Serial.print("etvoc= ");
     Serial.print(etvoc);
     Serial.print(" ppb  ");
     // Serial.print("raw6=");  Serial.print(raw/1024); Serial.print(" uA  ");
@@ -402,6 +402,8 @@ void loop()
     int leco2 = readCO2();
     String CO2s = "CO2: " + String(leco2);
     Serial.println(CO2s);
+    Serial.print(bme.readPressure() / 100.0F);
+    Serial.println(" hPa");
 
     if (leco2 < 1000)
     {
