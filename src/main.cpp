@@ -89,6 +89,10 @@ float temperature = 0.0f;
 
 // Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
+int ALTITUDE = 170;
+double getP(double Pact, double temp) {
+  return Pact * pow((1 - ((0.0065 * ALTITUDE) / (temp + 0.0065 * ALTITUDE + 273.15))), -5.257);
+}
 
 void printValues()
 {
@@ -253,7 +257,7 @@ void setup()
   while (WiFi.status() != WL_CONNECTED)
   {
     // delay(500);
-    maled.bleue_clignote(2, 250);
+    maled.bleue_clignote(4, 125);
     Serial.print(".");
   }
   // Print local IP address and start web server
@@ -402,8 +406,13 @@ void loop()
     int leco2 = readCO2();
     String CO2s = "CO2: " + String(leco2);
     Serial.println(CO2s);
-    Serial.print(bme.readPressure() / 100.0F);
+    double P = getP((bme.readPressure() / 100.0F), bme.readTemperature());
+    Serial.print(P);
     Serial.println(" hPa");
+    Serial.print(bme.readTemperature());
+    Serial.print(" deg C");    
+    Serial.print(bme.readHumidity());
+    Serial.print(" %");  
 
     if (leco2 < 1000)
     {
