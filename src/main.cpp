@@ -2,7 +2,7 @@
 Mesure de co2 temperature humidite pression
 les capteurs sont :
 ccs811 ---> mesure eco2 et ecov
-le dht 11 est remplacé par un bme130
+le dht 11 est remplacé par un bme280
 Un serveur webb est opérationnel en mode ap sur http://192.168.4.1/
 
 ********************************************************************/
