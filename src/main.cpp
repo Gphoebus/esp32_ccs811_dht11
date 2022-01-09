@@ -410,7 +410,7 @@ void loop()
     Serial.print(P);
     Serial.println(" hPa");
     Serial.print(bme.readTemperature());
-    Serial.print(" deg C");    
+    Serial.print(" deg C ");    
     Serial.print(bme.readHumidity());
     Serial.print(" %");  
 
