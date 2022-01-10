@@ -21,6 +21,14 @@ Un serveur webb est opérationnel en mode ap sur http://192.168.4.1/
 
 #include <serveur_webb.h>
 
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+#define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS 0x3c ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
 #include <Ledrgb.h>
 Ledrgb maled = Ledrgb(12, 13, 14);
 
@@ -222,6 +230,35 @@ void setup()
   // Initialize Serial Monitor
   Serial.begin(115200);
 
+  // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
+  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;); // Don't proceed, loop forever
+  }
+
+  display.clearDisplay();
+
+  display.setTextSize(2);      // Normal 1:1 pixel scale
+  display.setTextColor(SSD1306_WHITE); // Draw white text
+
+  display.cp437(true);         // Use full 256 char 'Code Page 437' font
+
+  display.setCursor(20, 0);     // Start at top-left corner
+  display.print("Mesures");
+  display.setCursor(50, 20);  
+  display.print("en");
+  display.setCursor(35, 40);  
+  display.print("cours");    
+  display.display();
+
+  // Show initial display buffer contents on the screen --
+  // the library initializes this with an Adafruit splash screen.
+  display.display();
+  delay(2000); // Pause for 2 seconds
+
+  // Clear the buffer
+  //display.clearDisplay();
+
   unsigned status;
 
   // default settings
@@ -395,16 +432,52 @@ void loop()
     Serial.print("HOUR: ");
     Serial.println(timeStamp);
     int leco2 = readCO2();
-    String CO2s = "CO2: " + String(leco2);
+    String CO2s = "CO2: " + String(leco2)+ " ppm";
     Serial.print(CO2s);
-    Serial.println(" ppm");
     int P = getP((bme.readPressure() / 100.0F), bme.readTemperature());
     Serial.print(P);
     Serial.println(" hPa");
     Serial.print(bme.readTemperature());
     Serial.print(" deg C ");    
     Serial.print(bme.readHumidity());
-    Serial.print(" %");  
+    Serial.print(" %");
+
+    display.clearDisplay();
+    display.setTextSize(1);
+
+    display.setCursor(36, 0);
+
+    display.print("renifl'air");
+    display.drawLine(40, 11, 90, 11, SSD1306_WHITE);
+    display.setCursor(0, 15);
+    display.print("co2 :");
+    display.setCursor(40, 15);    
+    display.print(leco2);
+    display.setCursor(85, 15);
+    display.print("ppm");
+
+
+    display.setCursor(0, 25);
+    display.print("Pa  :");
+    display.setCursor(40, 25);    
+    display.print(P);
+    display.setCursor(85, 25);
+    display.print("hPa");
+
+    display.setCursor(0, 35);
+    display.print("temp:");
+    display.setCursor(40, 35);    
+    display.print(bme.readTemperature());
+    display.setCursor(85, 35);
+    display.print("degres");
+
+    display.setCursor(0, 45);
+    display.print("hum :");
+    display.setCursor(40, 45);    
+    display.print(bme.readHumidity());
+    display.setCursor(85, 45);
+    display.print("%");
+    display.display();
 
     if (leco2 < 1000)
     {
