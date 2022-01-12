@@ -15,26 +15,36 @@ Un serveur webb est opérationnel en mode ap sur http://192.168.4.1/
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
 
-
 #include <Wire.h>   // I2C library
 #include "ccs811.h" // CCS811 library
 
 #include <serveur_webb.h>
 
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
-#define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
+#include "SSD1306Wire.h"    // legacy include: `#include "SSD1306.h"`
+#define SCREEN_WIDTH 128    // OLED display width, in pixels
+#define SCREEN_HEIGHT 64    // OLED display height, in pixels
+#define OLED_RESET -1       // Reset pin # (or -1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3c ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+// Initialize the OLED display using Wire library
+SSD1306Wire display(SCREEN_ADDRESS, SDA, SCL); // ADDRESS, SDA, SCL  -  SDA and SCL usually populate automatically based on your board's pins_arduino.h e.g. https://github.com/esp8266/Arduino/blob/master/variants/nodemcu/pins_arduino.h
+// SH1106Wire display(0x3c, SDA, SCL);
+
+// Include the UI lib
+#include "OLEDDisplayUi.h"
+// Include custom images
+OLEDDisplayUi ui(&display);
+#include "images.h"
 
 #include <Ledrgb.h>
 Ledrgb maled = Ledrgb(12, 13, 14);
 
 // Replace with your network credentials
+// const char *ssid = "Borde Basse Personnels";
 const char *ssid = "phoebus_gaston";
+// const char *password = "";
 const char *password = "phoebus09";
+
+WiFiClient client; // pour utiliser un proxy
 
 // Define NTP Client to get time
 WiFiUDP ntpUDP;
@@ -47,7 +57,6 @@ String timeStamp;
 
 long previousMillis = 0;
 #define INTERVAL 60000 // 300000
-
 
 // ---- wiring mwake on gpio 23 --------
 CCS811 ccs811(23); // nWAKE on 23
@@ -84,10 +93,14 @@ int ppm = 0;
 float humidity = 0.0f;
 float temperature = 0.0f;
 
+int leco2 = 0;
+
 // Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
+
 int ALTITUDE = 240;
-int getP(double Pact, double temp) {
+int getP(double Pact, double temp)
+{
   return int(Pact * pow((1 - ((0.0065 * ALTITUDE) / (temp + 0.0065 * ALTITUDE + 273.15))), -5.257));
 }
 
@@ -224,40 +237,102 @@ void send_Request(byte *Request, int Re_len)
     delay(50);
   }
 }
+void msOverlay(OLEDDisplay *display, OLEDDisplayUiState *state)
+{
+  display->setTextAlignment(TEXT_ALIGN_RIGHT);
+  display->setFont(ArialMT_Plain_10);
+  display->drawString(128, 0, String(millis()));
+}
 
+void drawFrame1(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+{
+  // leco2 = readCO2();
+  display->setTextAlignment(TEXT_ALIGN_CENTER);
+  display->setFont(ArialMT_Plain_24);
+  display->drawString(60 + x, 0 + y, "Co2");
+  display->drawString(50 + x, 25 + y, String(leco2));
+  display->setFont(ArialMT_Plain_10);
+  display->drawString(95 + x, 35 + y, "ppm");
+}
+
+void drawFrame2(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+{
+  // Demonstrates the 3 included default sizes. The fonts come from SSD1306Fonts.h file
+  // Besides the default fonts there will be a program to convert TrueType fonts into this format
+  display->setTextAlignment(TEXT_ALIGN_LEFT);
+  display->setFont(ArialMT_Plain_16);
+  display->drawString(15 + x, 0 + y, "Température");
+
+  display->setFont(ArialMT_Plain_10);
+  String texte = String(bme.readTemperature()) + " °C";
+  display->drawString(50 + x, 30 + y, texte);
+}
+
+void drawFrame3(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+{
+  display->setTextAlignment(TEXT_ALIGN_LEFT);
+  display->setFont(ArialMT_Plain_16);
+  display->drawString(30 + x, 0 + y, "Humidité");
+
+  display->setFont(ArialMT_Plain_10);
+  String texte = String(bme.readHumidity()) + " %";
+  display->drawString(50 + x, 30 + y, texte);
+}
+
+void drawFrame4(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+{
+  display->setTextAlignment(TEXT_ALIGN_LEFT);
+  display->setFont(ArialMT_Plain_16);
+  display->drawString(30 + x, 0 + y, "Pression");
+
+  display->setFont(ArialMT_Plain_10);
+  int P = getP((bme.readPressure() / 100.0F), bme.readTemperature());
+  String texte = String(P) + " mpa";
+  display->drawString(40 + x, 30 + y, texte);
+}
+
+void drawFrame5(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+{
+}
+
+// This array keeps function pointers to all frames
+// frames are the single views that slide in
+FrameCallback frames[] = {drawFrame1, drawFrame2, drawFrame3, drawFrame4, drawFrame5};
+
+// how many frames are there?
+int frameCount = 4;
+
+// Overlays are statically drawn on top of a frame eg. a clock
+OverlayCallback overlays[] = {msOverlay};
+int overlaysCount = 1;
 void setup()
 {
   // Initialize Serial Monitor
   Serial.begin(115200);
 
+  ui.setTargetFPS(60);
+  // Customize the active and inactive symbol
+  ui.setActiveSymbol(activeSymbol);
+  ui.setInactiveSymbol(inactiveSymbol);
+  // You can change this to
+  // TOP, LEFT, BOTTOM, RIGHT
+  ui.setIndicatorPosition(BOTTOM);
+  // Defines where the first frame is located in the bar.
+  ui.setIndicatorDirection(LEFT_RIGHT);
+  // You can change the transition that is used
+  // SLIDE_LEFT, SLIDE_RIGHT, SLIDE_UP, SLIDE_DOWN
+  ui.setFrameAnimation(SLIDE_LEFT);
+  // Add frames
+  ui.setFrames(frames, frameCount);
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    for(;;); // Don't proceed, loop forever
-  }
+  ui.init();
+  display.flipScreenVertically();
 
-  display.clearDisplay();
-
-  display.setTextSize(2);      // Normal 1:1 pixel scale
-  display.setTextColor(SSD1306_WHITE); // Draw white text
-
-  display.cp437(true);         // Use full 256 char 'Code Page 437' font
-
-  display.setCursor(20, 0);     // Start at top-left corner
-  display.print("Mesures");
-  display.setCursor(50, 20);  
-  display.print("en");
-  display.setCursor(35, 40);  
-  display.print("cours");    
-  display.display();
-
-  // Show initial display buffer contents on the screen --
-  // the library initializes this with an Adafruit splash screen.
-  display.display();
+  display.drawXbm(34, 14, 60, 36, WiFi_Logo_bits);
   delay(2000); // Pause for 2 seconds
-
+  display.display();
   // Clear the buffer
-  //display.clearDisplay();
+  // display.clearDisplay();
 
   unsigned status;
 
@@ -290,6 +365,9 @@ void setup()
     maled.bleue_clignote(4, 125);
     Serial.print(".");
   }
+  display.resetDisplay();
+  // client.connect(IPAddress(10, 255, 6, 124), 3128);
+
   // Print local IP address and start web server
   Serial.println("");
   Serial.println("WiFi connected.");
@@ -368,8 +446,7 @@ void setup()
                 humidity = bme.readHumidity();
 
                 request->send_P(200, "text/html", index_html, processor);
-              }
-            });
+              } });
 
   // Send a GET request to <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
   server.on("/calibration", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -404,11 +481,19 @@ void setup()
   timeClient.begin();
   horodatage();
   printValues();
+  leco2 = readCO2();
 }
 void loop()
 {
-
+  int remainingTimeBudget = ui.update();
   unsigned long currentMillis = millis();
+  if (remainingTimeBudget > 0)
+  {
+    // You can do some work here
+    // Don't do stuff if you are below your
+    // time budget.
+    delay(remainingTimeBudget);
+  }
   if (currentMillis - previousMillis >= INTERVAL)
   {
 
@@ -431,54 +516,54 @@ void loop()
     timeStamp = formattedDate.substring(splitT + 1, formattedDate.length() - 1);
     Serial.print("HOUR: ");
     Serial.println(timeStamp);
-    int leco2 = readCO2();
-    String CO2s = "CO2: " + String(leco2)+ " ppm";
+    leco2 = readCO2();
+    String CO2s = "CO2: " + String(leco2) + " ppm";
     Serial.print(CO2s);
     int P = getP((bme.readPressure() / 100.0F), bme.readTemperature());
     Serial.print(P);
     Serial.println(" hPa");
     Serial.print(bme.readTemperature());
-    Serial.print(" deg C ");    
+    Serial.print(" deg C ");
     Serial.print(bme.readHumidity());
     Serial.print(" %");
+    /*
+        display.clearDisplay();
+        display.setTextSize(1);
 
-    display.clearDisplay();
-    display.setTextSize(1);
+        display.setCursor(36, 0);
 
-    display.setCursor(36, 0);
-
-    display.print("renifl'air");
-    display.drawLine(40, 11, 90, 11, SSD1306_WHITE);
-    display.setCursor(0, 15);
-    display.print("co2 :");
-    display.setCursor(40, 15);    
-    display.print(leco2);
-    display.setCursor(85, 15);
-    display.print("ppm");
+        display.print("renifl'air");
+        display.drawLine(40, 11, 90, 11, SSD1306_WHITE);
+        display.setCursor(0, 15);
+        display.print("co2 :");
+        display.setCursor(40, 15);
+        display.print(leco2);
+        display.setCursor(85, 15);
+        display.print("ppm");
 
 
-    display.setCursor(0, 25);
-    display.print("Pa  :");
-    display.setCursor(40, 25);    
-    display.print(P);
-    display.setCursor(85, 25);
-    display.print("hPa");
+        display.setCursor(0, 25);
+        display.print("Pa  :");
+        display.setCursor(40, 25);
+        display.print(P);
+        display.setCursor(85, 25);
+        display.print("hPa");
 
-    display.setCursor(0, 35);
-    display.print("temp:");
-    display.setCursor(40, 35);    
-    display.print(bme.readTemperature());
-    display.setCursor(85, 35);
-    display.print("degres");
+        display.setCursor(0, 35);
+        display.print("temp:");
+        display.setCursor(40, 35);
+        display.print(bme.readTemperature());
+        display.setCursor(85, 35);
+        display.print("degres");
 
-    display.setCursor(0, 45);
-    display.print("hum :");
-    display.setCursor(40, 45);    
-    display.print(bme.readHumidity());
-    display.setCursor(85, 45);
-    display.print("%");
-    display.display();
-
+        display.setCursor(0, 45);
+        display.print("hum :");
+        display.setCursor(40, 45);
+        display.print(bme.readHumidity());
+        display.setCursor(85, 45);
+        display.print("%");
+        display.display();
+    */
     if (leco2 < 1000)
     {
 
