@@ -39,10 +39,10 @@ OLEDDisplayUi ui(&display);
 Ledrgb maled = Ledrgb(12, 13, 14);
 
 // Replace with your network credentials
-// const char *ssid = "Borde Basse Personnels";
-const char *ssid = "phoebus_gaston";
-// const char *password = "";
-const char *password = "phoebus09";
+char *ssid = "";
+// const char ssid = "phoebus_gaston";
+char *password = "";
+// const char password = "phoebus09";
 
 WiFiClient client; // pour utiliser un proxy
 
@@ -99,6 +99,14 @@ int leco2 = 0;
 AsyncWebServer server(80);
 
 int ALTITUDE = 240;
+float arrondi(float val, int precision)
+{
+  val = val * precision;
+  val = int(val);
+  val = val / precision;
+  return val;
+}
+
 int getP(double Pact, double temp)
 {
   return int(Pact * pow((1 - ((0.0065 * ALTITUDE) / (temp + 0.0065 * ALTITUDE + 273.15))), -5.257));
@@ -264,7 +272,7 @@ void drawFrame2(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int1
   display->drawString(15 + x, 0 + y, "Température");
 
   display->setFont(ArialMT_Plain_10);
-  String texte = String(bme.readTemperature()) + " °C";
+  String texte = String(arrondi(temperature,10)) + " °C";
   display->drawString(50 + x, 30 + y, texte);
 }
 
@@ -275,7 +283,7 @@ void drawFrame3(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int1
   display->drawString(30 + x, 0 + y, "Humidité");
 
   display->setFont(ArialMT_Plain_10);
-  String texte = String(bme.readHumidity()) + " %";
+  String texte = String(arrondi(humidity,10)) + " %";
   display->drawString(50 + x, 30 + y, texte);
 }
 
@@ -357,8 +365,30 @@ void setup()
 
   WiFi.softAP(soft_ap_ssid, soft_ap_password);
   IPAddress IP = WiFi.softAPIP();
-
+  /* --------------  Selection du reseau ------------*/
+  int n = WiFi.scanNetworks();
+  Serial.print(n);
+  Serial.println(" network(s) found");
+  for (int i = 0; i < n; i++)
+  {
+    Serial.println(WiFi.SSID(i));
+    if (WiFi.SSID(i) == "Borde Basse Personnels")
+    {
+      ssid = "Borde Basse Personnels";
+      password = "";
+      Serial.println("ssid trouvé");
+    }
+    else if ((WiFi.SSID(i) == "phoebus_gaston"))
+    {
+      ssid = "phoebus_gaston";
+      password = "phoebus09";
+    }
+  }
+  Serial.print("connecté sur ");
+  Serial.println(ssid);
+  /*--------------- fin de selection du reseau --------*/
   WiFi.begin(ssid, password);
+  delay(500);
   while (WiFi.status() != WL_CONNECTED)
   {
     // delay(500);
@@ -366,7 +396,7 @@ void setup()
     Serial.print(".");
   }
   display.resetDisplay();
-  // client.connect(IPAddress(10, 255, 6, 124), 3128);
+  client.connect(IPAddress(10, 255, 6, 124), 3128);
 
   // Print local IP address and start web server
   Serial.println("");
@@ -492,6 +522,9 @@ void loop()
     // You can do some work here
     // Don't do stuff if you are below your
     // time budget.
+    humidity = bme.readHumidity();
+    temperature=bme.readTemperature();
+
     delay(remainingTimeBudget);
   }
   if (currentMillis - previousMillis >= INTERVAL)
@@ -517,9 +550,9 @@ void loop()
     Serial.print("HOUR: ");
     Serial.println(timeStamp);
     leco2 = readCO2();
-    String CO2s = "CO2: " + String(leco2) + " ppm";
+    String CO2s = "CO2: " + String(leco2) + " ppm ";
     Serial.print(CO2s);
-    int P = getP((bme.readPressure() / 100.0F), bme.readTemperature());
+    double P = getP((bme.readPressure() / 100.0F), bme.readTemperature());
     Serial.print(P);
     Serial.println(" hPa");
     Serial.print(bme.readTemperature());
