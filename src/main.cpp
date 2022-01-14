@@ -110,7 +110,7 @@ float arrondi(float val, int precision)
 int getP(double Pact, double temp)
 {
   double pressure2 = (Pact - Pact * pow((1 - ((0.0065 * ALTITUDE) / (temp + 0.0065 * ALTITUDE + 273.15))), -5.257));
-  return int(Pact-pressure2); 
+  return int(Pact - pressure2);
 }
 
 void printValues()
@@ -248,56 +248,64 @@ void send_Request(byte *Request, int Re_len)
 }
 void msOverlay(OLEDDisplay *display, OLEDDisplayUiState *state)
 {
-  display->setTextAlignment(TEXT_ALIGN_RIGHT);
-  display->setFont(ArialMT_Plain_10);
-  display->drawString(128, 0, String(millis()));
+  // display->setTextAlignment(TEXT_ALIGN_RIGHT);
+  // display->setFont(ArialMT_Plain_10);
+  // display->drawString(128, 0, String(millis()));
+  if (leco2 > 1200)
+  {
+    display->drawXbm(108, 5, 15, 13, icone__danger_blanc);
+  }
 }
 
 void drawFrame1(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
   // leco2 = readCO2();
-  display->setTextAlignment(TEXT_ALIGN_CENTER);
+  // display->setTextAlignment(TEXT_ALIGN_CENTER);
   display->setFont(ArialMT_Plain_24);
-  display->drawString(60 + x, 0 + y, "Co2");
+  // display->drawString(60 + x, 0 + y, "Co2");
+
+  display->drawXbm(10 + x, 10 + y, 36, 25, logo_co2);
   display->drawString(50 + x, 25 + y, String(leco2));
   display->setFont(ArialMT_Plain_10);
-  display->drawString(95 + x, 35 + y, "ppm");
+  display->drawString(105 + x, 40 + y, "ppm");
 }
 
 void drawFrame2(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
-  // Demonstrates the 3 included default sizes. The fonts come from SSD1306Fonts.h file
-  // Besides the default fonts there will be a program to convert TrueType fonts into this format
-  display->setTextAlignment(TEXT_ALIGN_LEFT);
-  display->setFont(ArialMT_Plain_16);
-  display->drawString(15 + x, 0 + y, "Température");
 
+  // display->setTextAlignment(TEXT_ALIGN_LEFT);
+  // display->setFont(ArialMT_Plain_16);
+  // display->drawString(15 + x, 0 + y, "Température");
+  display->drawXbm(20 + x, 10 + y, 16, 36, logo_temperature);
+  display->setFont(ArialMT_Plain_24);
+  String texte = String(arrondi(temperature, 10));
+  display->drawString(50 + x, 25 + y, texte);
   display->setFont(ArialMT_Plain_10);
-  String texte = String(arrondi(temperature,10)) + " °C";
-  display->drawString(50 + x, 30 + y, texte);
+  display->drawString(115 + x, 40 + y, "°C");
 }
 
 void drawFrame3(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
-  display->setTextAlignment(TEXT_ALIGN_LEFT);
-  display->setFont(ArialMT_Plain_16);
-  display->drawString(30 + x, 0 + y, "Humidité");
+  display->drawXbm(10 + x, 10 + y, 36, 37, logo_humidite);
+  display->setFont(ArialMT_Plain_24);
+  // display->drawString(30 + x, 0 + y, "Humidité");
+  String texte = String(arrondi(humidity, 10));
 
+  display->drawString(50 + x, 25 + y, texte);
   display->setFont(ArialMT_Plain_10);
-  String texte = String(arrondi(humidity,10)) + " %";
-  display->drawString(50 + x, 30 + y, texte);
+  display->drawString(115 + x, 40 + y, "%");
 }
 
 void drawFrame4(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
-  display->setTextAlignment(TEXT_ALIGN_LEFT);
-  display->setFont(ArialMT_Plain_16);
-  display->drawString(30 + x, 0 + y, "Pression");
 
-  display->setFont(ArialMT_Plain_10);
+  display->drawXbm(10 + x, 10 + y, 36, 35, icone_pa);
+  display->setFont(ArialMT_Plain_24);
   int P = getP((bme.readPressure() / 100.0F), bme.readTemperature());
-  String texte = String(P) + " mpa";
-  display->drawString(40 + x, 30 + y, texte);
+  String texte = String(P);
+  display->drawString(50 + x, 25 + y, texte);
+  display->setFont(ArialMT_Plain_10);
+  display->drawString(105 + x, 40 + y, "mpa");
 }
 
 void drawFrame5(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
@@ -334,11 +342,11 @@ void setup()
   // Add frames
   ui.setFrames(frames, frameCount);
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
+  ui.setOverlays(overlays, overlaysCount);
   ui.init();
   display.flipScreenVertically();
 
   display.drawXbm(34, 14, 60, 36, WiFi_Logo_bits);
-  delay(2000); // Pause for 2 seconds
   display.display();
   // Clear the buffer
   // display.clearDisplay();
@@ -389,15 +397,18 @@ void setup()
   Serial.println(ssid);
   /*--------------- fin de selection du reseau --------*/
   WiFi.begin(ssid, password);
-  delay(500);
+
   while (WiFi.status() != WL_CONNECTED)
   {
     // delay(500);
     maled.bleue_clignote(4, 125);
     Serial.print(".");
   }
-  display.resetDisplay();
-  client.connect(IPAddress(10, 255, 6, 124), 3128);
+
+  if (ssid == "Borde Basse Personnels")
+  {
+    client.connect(IPAddress(10, 255, 6, 124), 3128);
+  }
 
   // Print local IP address and start web server
   Serial.println("");
@@ -443,6 +454,8 @@ void setup()
   Serial.println(ccs811.bootloader_version(), HEX);
   Serial.print("setup: application version: ");
   Serial.println(ccs811.application_version(), HEX);
+
+  display.resetDisplay();
 
   // Start measuring
   ok = ccs811.start(CCS811_MODE_1SEC);
@@ -524,7 +537,7 @@ void loop()
     // Don't do stuff if you are below your
     // time budget.
     humidity = bme.readHumidity();
-    temperature=bme.readTemperature();
+    temperature = bme.readTemperature();
 
     delay(remainingTimeBudget);
   }
