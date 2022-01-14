@@ -109,7 +109,8 @@ float arrondi(float val, int precision)
 
 int getP(double Pact, double temp)
 {
-  return int(Pact * pow((1 - ((0.0065 * ALTITUDE) / (temp + 0.0065 * ALTITUDE + 273.15))), -5.257));
+  double pressure2 = (Pact - Pact * pow((1 - ((0.0065 * ALTITUDE) / (temp + 0.0065 * ALTITUDE + 273.15))), -5.257));
+  return int(Pact-pressure2); 
 }
 
 void printValues()
