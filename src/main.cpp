@@ -9,6 +9,8 @@ Un serveur webb est opérationnel en mode ap sur http://192.168.4.1/
 #include <Arduino.h>
 
 #include <WiFi.h>
+#include <HttpClient.h>
+
 #include <NTPClient.h>
 #include <ESPAsyncWebServer.h>
 #include <WiFiUdp.h>
@@ -203,15 +205,15 @@ String processor(const String &var)
   }
   else if (var == "co2")
   {
-    return String(ppm);
+    return String(leco2);
   }
   else if (var == "humidite")
   {
-    return String(humidity);
+    return String(bme.readHumidity());
   }
   else if (var == "temperature")
   {
-    return String(temperature);
+    return String(bme.readTemperature());
   }
   else if (var == "date")
   {
@@ -551,6 +553,7 @@ void loop()
     // The formattedDate comes with the following format:
     // 2018-05-28T16:00:13Z
     // We need to extract date and time
+    horodatage();
     formattedDate = timeClient.getFormattedDate();
     Serial.println(formattedDate);
 
@@ -573,44 +576,22 @@ void loop()
     Serial.print(" deg C ");
     Serial.print(bme.readHumidity());
     Serial.print(" %");
-    /*
-        display.clearDisplay();
-        display.setTextSize(1);
 
-        display.setCursor(36, 0);
+   if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;  //Object of class HTTPClient
+    //mySensor.measureAirQuality();
+    String requete="http://flal09.free.fr/meteo/capteurs/update_co2.php?date="+ladate+"&heure="+heure+"&co2="+leco2+"&tvoc="+"0"+"&capteur="+numsonde+"&temperature="+temperature+"&humidite="+String(humidity)+"&pression="+P; 
+    
+    Serial.println(requete);
+    http.begin(requete);
+    //http.begin(requete);
+    int httpCode = http.GET();
+    Serial.print("Retour execution ");
+    Serial.println(httpCode); 
+    client.stop();
 
-        display.print("renifl'air");
-        display.drawLine(40, 11, 90, 11, SSD1306_WHITE);
-        display.setCursor(0, 15);
-        display.print("co2 :");
-        display.setCursor(40, 15);
-        display.print(leco2);
-        display.setCursor(85, 15);
-        display.print("ppm");
+   }
 
-
-        display.setCursor(0, 25);
-        display.print("Pa  :");
-        display.setCursor(40, 25);
-        display.print(P);
-        display.setCursor(85, 25);
-        display.print("hPa");
-
-        display.setCursor(0, 35);
-        display.print("temp:");
-        display.setCursor(40, 35);
-        display.print(bme.readTemperature());
-        display.setCursor(85, 35);
-        display.print("degres");
-
-        display.setCursor(0, 45);
-        display.print("hum :");
-        display.setCursor(40, 45);
-        display.print(bme.readHumidity());
-        display.setCursor(85, 45);
-        display.print("%");
-        display.display();
-    */
     if (leco2 < 1000)
     {
 
