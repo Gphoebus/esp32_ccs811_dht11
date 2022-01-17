@@ -32,9 +32,9 @@ SSD1306Wire display(SCREEN_ADDRESS, SDA, SCL); // ADDRESS, SDA, SCL  -  SDA and 
 // SH1106Wire display(0x3c, SDA, SCL);
 
 // Include the UI lib
-#include "OLEDDisplayUi.h"
+//#include "OLEDDisplayUi.h"
 // Include custom images
-OLEDDisplayUi ui(&display);
+// OLEDDisplayUi ui(&display);
 #include "images.h"
 
 #include <Ledrgb.h>
@@ -58,7 +58,11 @@ String dayStamp;
 String timeStamp;
 
 long previousMillis = 0;
+long previousMillis_scroll = 0;
 #define INTERVAL 60000 // 300000
+
+#define INTERVAL_SCROLL 15000 // intervalle d'affichage
+int panneau = 1;
 
 // ---- wiring mwake on gpio 23 --------
 CCS811 ccs811(23); // nWAKE on 23
@@ -96,6 +100,7 @@ uint16_t tvoc = 0;
 
 float humidity = 0.0f;
 float temperature = 0.0f;
+double pression =1024.0f;
 
 int leco2 = 0;
 
@@ -113,8 +118,8 @@ float arrondi(float val, int precision)
 
 int getP(double Pact, double temp)
 {
-  //double pressure2 = (Pact - Pact * pow((1 - ((0.0065 * ALTITUDE) / (temp + 0.0065 * ALTITUDE + 273.15))), -5.257));
-  //return int(Pact - pressure2);
+  // double pressure2 = (Pact - Pact * pow((1 - ((0.0065 * ALTITUDE) / (temp + 0.0065 * ALTITUDE + 273.15))), -5.257));
+  // return int(Pact - pressure2);
   return Pact;
 }
 
@@ -155,7 +160,7 @@ void horodatage()
   // Extract time
   heure = formattedDate.substring(splitT + 1, formattedDate.length() - 1);
 }
-readCO2(uint16_t &retour1, uint16_t &retour2)
+void readCO2(uint16_t &retour1, uint16_t &retour2)
 {
   uint16_t eco2, etvoc, errstat, raw;
   ccs811.read(&eco2, &etvoc, &errstat, &raw);
@@ -194,13 +199,14 @@ readCO2(uint16_t &retour1, uint16_t &retour2)
     Serial.print("=");
     Serial.println(ccs811.errstat_str(errstat));
   }
-  //retour1 = 0;
-  //retour2 = 0;
+  // retour1 = 0;
+  // retour2 = 0;
 }
 
 // Replaces placeholder with button section in your web page
 String processor(const String &var)
 {
+
   // Serial.println(var);
   if (var == "numsalle")
   {
@@ -212,15 +218,15 @@ String processor(const String &var)
   }
   else if (var == "co2")
   {
-    return String(leco2);
+    return String(ppm);
   }
   else if (var == "humidite")
   {
-    return String(bme.readHumidity());
+    return String(humidity);
   }
   else if (var == "temperature")
   {
-    return String(bme.readTemperature());
+    return String(temperature);
   }
   else if (var == "date")
   {
@@ -236,7 +242,7 @@ String processor(const String &var)
   }
   else if (var == "pression")
   {
-    return String(getP((bme.readPressure() / 100.0F), bme.readTemperature()));
+    return String(int(pression));
   }
   if (var == "BUTTONPLACEHOLDER")
   {
@@ -255,6 +261,7 @@ void send_Request(byte *Request, int Re_len)
     delay(50);
   }
 }
+/*
 void msOverlay(OLEDDisplay *display, OLEDDisplayUiState *state)
 {
   // display->setTextAlignment(TEXT_ALIGN_RIGHT);
@@ -320,40 +327,90 @@ void drawFrame4(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int1
 void drawFrame5(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
 }
-
+*/
 // This array keeps function pointers to all frames
 // frames are the single views that slide in
-FrameCallback frames[] = {drawFrame1, drawFrame2, drawFrame3, drawFrame4, drawFrame5};
+// FrameCallback frames[] = {drawFrame1, drawFrame2, drawFrame3, drawFrame4, drawFrame5};
 
 // how many frames are there?
 int frameCount = 4;
 
 // Overlays are statically drawn on top of a frame eg. a clock
-OverlayCallback overlays[] = {msOverlay};
+// OverlayCallback overlays[] = {msOverlay};
 int overlaysCount = 1;
+void ecran1()
+{
+  display.clear();
+  display.setFont(ArialMT_Plain_24);
+  display.drawXbm(10, 10, 36, 25, logo_co2);
+  display.drawString(50, 25, String(ppm));
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(105, 40, "ppm");
+  display.display();
+}
+
+void ecran2()
+{
+  display.clear();
+  display.drawXbm(20, 10, 16, 36, logo_temperature);
+  display.setFont(ArialMT_Plain_24);
+  String texte = String(arrondi(temperature, 10));
+  display.drawString(50, 25, texte);
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(115, 40, "°C");
+  display.display();
+}
+void ecran3()
+{
+  display.clear();
+  display.drawXbm(10, 10, 36, 37, logo_humidite);
+  display.setFont(ArialMT_Plain_24);
+  String texte = String(arrondi(humidity, 10));
+  display.drawString(50, 25, texte);
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(115, 40, "%");
+  display.display();
+}
+void ecran4()
+{
+  display.clear();
+  display.drawXbm(10., 10., 36, 35, icone_pa);
+  display.setFont(ArialMT_Plain_24);
+  int P = getP((bme.readPressure() / 100.0F), bme.readTemperature());
+  String texte = String(P);
+  display.drawString(50., 25., texte);
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(105., 40., "mpa");
+  display.display();
+}
+void ecran_danger()
+{
+  display.drawXbm(108, 5, 15, 13, icone__danger_blanc);
+}
 void setup()
 {
   // Initialize Serial Monitor
   Serial.begin(115200);
-
-  ui.setTargetFPS(60);
-  // Customize the active and inactive symbol
-  ui.setActiveSymbol(activeSymbol);
-  ui.setInactiveSymbol(inactiveSymbol);
-  // You can change this to
-  // TOP, LEFT, BOTTOM, RIGHT
-  ui.setIndicatorPosition(BOTTOM);
-  // Defines where the first frame is located in the bar.
-  ui.setIndicatorDirection(LEFT_RIGHT);
-  // You can change the transition that is used
-  // SLIDE_LEFT, SLIDE_RIGHT, SLIDE_UP, SLIDE_DOWN
-  ui.setFrameAnimation(SLIDE_LEFT);
-  // Add frames
-  ui.setFrames(frames, frameCount);
-  // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-  ui.setOverlays(overlays, overlaysCount);
-  ui.init();
-
+  /*
+    ui.setTargetFPS(60);
+    // Customize the active and inactive symbol
+    ui.setActiveSymbol(activeSymbol);
+    ui.setInactiveSymbol(inactiveSymbol);
+    // You can change this to
+    // TOP, LEFT, BOTTOM, RIGHT
+    ui.setIndicatorPosition(BOTTOM);
+    // Defines where the first frame is located in the bar.
+    ui.setIndicatorDirection(LEFT_RIGHT);
+    // You can change the transition that is used
+    // SLIDE_LEFT, SLIDE_RIGHT, SLIDE_UP, SLIDE_DOWN
+    ui.setFrameAnimation(SLIDE_LEFT);
+    // Add frames
+    ui.setFrames(frames, frameCount);
+    // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
+    ui.setOverlays(overlays, overlaysCount);
+    ui.init();
+  */
+  display.init();
   display.flipScreenVertically();
 
   display.drawXbm(34, 14, 60, 36, WiFi_Logo_bits);
@@ -465,7 +522,7 @@ void setup()
   Serial.print("setup: application version: ");
   Serial.println(ccs811.application_version(), HEX);
 
-  display.resetDisplay();
+
 
   // Start measuring
   ok = ccs811.start(CCS811_MODE_1SEC);
@@ -497,8 +554,9 @@ void setup()
                 
                 readCO2(ppm,tvoc);
 
-                temperature = bme.readTemperature();
-                humidity = bme.readHumidity();
+                //temperature = bme.readTemperature();
+                //humidity = bme.readHumidity();
+                //pression = getP((bme.readPressure() / 100.0F), bme.readTemperature());
 
                 request->send_P(200, "text/html", index_html, processor);
               } });
@@ -534,25 +592,59 @@ void setup()
   server.begin();
 
   timeClient.begin();
+  display.clear();
   horodatage();
-  printValues();  
-  readCO2(ppm,tvoc);
-
+  printValues();
+  readCO2(ppm, tvoc);
 }
 void loop()
 {
-  int remainingTimeBudget = ui.update();
+  // int remainingTimeBudget = ui.update();
+
   unsigned long currentMillis = millis();
+  /*
+    if (remainingTimeBudget > 0)
+    {
+      // You can do some work here
+      // Don't do stuff if you are below your
+      // time budget.
+      humidity = bme.readHumidity();
+      temperature = bme.readTemperature();
 
-  if (remainingTimeBudget > 0)
+      delay(remainingTimeBudget);
+    }
+    */
+  if (currentMillis - previousMillis_scroll >= INTERVAL_SCROLL)
   {
-    // You can do some work here
-    // Don't do stuff if you are below your
-    // time budget.
-    humidity = bme.readHumidity();
     temperature = bme.readTemperature();
-
-    delay(remainingTimeBudget);
+    humidity = bme.readHumidity();
+    pression = getP((bme.readPressure() / 100.0F), bme.readTemperature());
+    switch (panneau)
+    {
+    case 1:
+      ecran1();
+      panneau++;
+      previousMillis_scroll = currentMillis;
+      break;
+    case 2:
+      ecran2();
+      panneau++;
+      previousMillis_scroll = currentMillis;
+      break;
+    case 3:
+      ecran3();
+      panneau++;
+      previousMillis_scroll = currentMillis;
+      break;
+    case 4:
+      ecran4();
+      panneau = 1;
+      previousMillis_scroll = currentMillis;
+      break;
+    default:
+      // statements
+      break;
+    }
   }
   if (currentMillis - previousMillis >= INTERVAL)
   {
@@ -577,23 +669,26 @@ void loop()
     timeStamp = formattedDate.substring(splitT + 1, formattedDate.length() - 1);
     Serial.print("HOUR: ");
     Serial.println(timeStamp);
-    readCO2(ppm,tvoc);
+    readCO2(ppm, tvoc);
     String CO2s = "CO2: " + String(ppm) + " ppm ";
     Serial.print(CO2s);
     double P = getP((bme.readPressure() / 100.0F), bme.readTemperature());
+    pression=P;
     Serial.print(P);
     Serial.println(" hPa");
-    Serial.print(bme.readTemperature());
+    temperature=bme.readTemperature();
+    Serial.print(temperature);
     Serial.print(" deg C ");
-    Serial.print(bme.readHumidity());
+    humidity=bme.readHumidity();
+    Serial.print(humidity);
     Serial.print(" %");
 
     if (WiFi.status() == WL_CONNECTED)
     {
       HTTPClient http; // Object of class HTTPClient
       // mySensor.measureAirQuality();
-      Serial.println("");      
-      String requete = "http://flal09.free.fr/meteo/capteurs/update_co2.php?date=" + ladate + "&heure=" + heure + "&co2=" + ppm + "&tvoc=" +tvoc+ "&capteur=" + numsonde + "&temperature=" + temperature + "&humidite=" + String(humidity) + "&pression=" + P;
+      Serial.println("");
+      String requete = "http://flal09.free.fr/meteo/capteurs/update_co2.php?date=" + ladate + "&heure=" + heure + "&co2=" + ppm + "&tvoc=" + tvoc + "&capteur=" + numsonde + "&temperature=" + temperature + "&humidite=" + String(humidity) + "&pression=" + P;
 
       Serial.println(requete);
       http.begin(requete);
@@ -612,6 +707,7 @@ void loop()
     else if (leco2 >= 1000 && leco2 < 1500)
     {
       maled.orange(true);
+      ecran_danger();
     }
     else if (leco2 >= 1500)
     {
