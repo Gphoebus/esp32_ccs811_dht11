@@ -91,7 +91,9 @@ String letat_calibration = "on";
 
 boolean transmit = false;
 
-int ppm = 0;
+uint16_t ppm = 0;
+uint16_t tvoc = 0;
+
 float humidity = 0.0f;
 float temperature = 0.0f;
 
@@ -111,8 +113,9 @@ float arrondi(float val, int precision)
 
 int getP(double Pact, double temp)
 {
-  double pressure2 = (Pact - Pact * pow((1 - ((0.0065 * ALTITUDE) / (temp + 0.0065 * ALTITUDE + 273.15))), -5.257));
-  return int(Pact - pressure2);
+  //double pressure2 = (Pact - Pact * pow((1 - ((0.0065 * ALTITUDE) / (temp + 0.0065 * ALTITUDE + 273.15))), -5.257));
+  //return int(Pact - pressure2);
+  return Pact;
 }
 
 void printValues()
@@ -152,7 +155,7 @@ void horodatage()
   // Extract time
   heure = formattedDate.substring(splitT + 1, formattedDate.length() - 1);
 }
-int readCO2()
+readCO2(uint16_t &retour1, uint16_t &retour2)
 {
   uint16_t eco2, etvoc, errstat, raw;
   ccs811.read(&eco2, &etvoc, &errstat, &raw);
@@ -171,7 +174,10 @@ int readCO2()
     // Serial.print("raw10="); Serial.print(raw%1024); Serial.print(" ADC  ");
     // Serial.print("R="); Serial.print((1650*1000L/1023)*(raw%1024)/(raw/1024)); Serial.print(" ohm");
     Serial.println();
-    return eco2;
+
+    retour1 = eco2;
+    retour2 = etvoc;
+    // return retour;
   }
   else if (errstat == CCS811_ERRSTAT_OK_NODATA)
   {
@@ -188,7 +194,8 @@ int readCO2()
     Serial.print("=");
     Serial.println(ccs811.errstat_str(errstat));
   }
-  return -1;
+  //retour1 = 0;
+  //retour2 = 0;
 }
 
 // Replaces placeholder with button section in your web page
@@ -267,7 +274,7 @@ void drawFrame1(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int1
   // display->drawString(60 + x, 0 + y, "Co2");
 
   display->drawXbm(10 + x, 10 + y, 36, 25, logo_co2);
-  display->drawString(50 + x, 25 + y, String(leco2));
+  display->drawString(50 + x, 25 + y, String(ppm));
   display->setFont(ArialMT_Plain_10);
   display->drawString(105 + x, 40 + y, "ppm");
 }
@@ -346,6 +353,7 @@ void setup()
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   ui.setOverlays(overlays, overlaysCount);
   ui.init();
+
   display.flipScreenVertically();
 
   display.drawXbm(34, 14, 60, 36, WiFi_Logo_bits);
@@ -486,7 +494,8 @@ void setup()
               else
               {
                 horodatage();
-                ppm = readCO2();
+                
+                readCO2(ppm,tvoc);
 
                 temperature = bme.readTemperature();
                 humidity = bme.readHumidity();
@@ -526,13 +535,15 @@ void setup()
 
   timeClient.begin();
   horodatage();
-  printValues();
-  leco2 = readCO2();
+  printValues();  
+  readCO2(ppm,tvoc);
+
 }
 void loop()
 {
   int remainingTimeBudget = ui.update();
   unsigned long currentMillis = millis();
+
   if (remainingTimeBudget > 0)
   {
     // You can do some work here
@@ -566,8 +577,8 @@ void loop()
     timeStamp = formattedDate.substring(splitT + 1, formattedDate.length() - 1);
     Serial.print("HOUR: ");
     Serial.println(timeStamp);
-    leco2 = readCO2();
-    String CO2s = "CO2: " + String(leco2) + " ppm ";
+    readCO2(ppm,tvoc);
+    String CO2s = "CO2: " + String(ppm) + " ppm ";
     Serial.print(CO2s);
     double P = getP((bme.readPressure() / 100.0F), bme.readTemperature());
     Serial.print(P);
@@ -577,20 +588,21 @@ void loop()
     Serial.print(bme.readHumidity());
     Serial.print(" %");
 
-   if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;  //Object of class HTTPClient
-    //mySensor.measureAirQuality();
-    String requete="http://flal09.free.fr/meteo/capteurs/update_co2.php?date="+ladate+"&heure="+heure+"&co2="+leco2+"&tvoc="+"0"+"&capteur="+numsonde+"&temperature="+temperature+"&humidite="+String(humidity)+"&pression="+P; 
-    
-    Serial.println(requete);
-    http.begin(requete);
-    //http.begin(requete);
-    int httpCode = http.GET();
-    Serial.print("Retour execution ");
-    Serial.println(httpCode); 
-    client.stop();
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      HTTPClient http; // Object of class HTTPClient
+      // mySensor.measureAirQuality();
+      Serial.println("");      
+      String requete = "http://flal09.free.fr/meteo/capteurs/update_co2.php?date=" + ladate + "&heure=" + heure + "&co2=" + ppm + "&tvoc=" +tvoc+ "&capteur=" + numsonde + "&temperature=" + temperature + "&humidite=" + String(humidity) + "&pression=" + P;
 
-   }
+      Serial.println(requete);
+      http.begin(requete);
+      // http.begin(requete);
+      int httpCode = http.GET();
+      Serial.print("Retour execution ");
+      Serial.println(httpCode);
+      client.stop();
+    }
 
     if (leco2 < 1000)
     {
